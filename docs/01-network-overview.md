@@ -7,6 +7,8 @@ Hiểu được:
 - Mỗi node cần những file gì để chạy
 - Luồng dữ liệu đi qua mạng như thế nào
 
+> Bước này chỉ đọc hiểu, không cần chạy lệnh.
+
 ---
 
 ## 1. Các thành phần chính
@@ -78,34 +80,30 @@ Mạng test có 3 tổ chức:
 
 ---
 
-## 3. Cấu trúc file certificates (sau khi chạy cryptogen)
+## 3. Cấu trúc thư mục sau khi setup xong
 
 ```
-organizations/
-├── peerOrganizations/
-│   ├── org1.example.com/
-│   │   ├── ca/                         ← CA certificate và key của Org1
-│   │   ├── msp/                        ← MSP của Org1 (dùng khi định nghĩa channel)
-│   │   │   ├── admincerts/
-│   │   │   ├── cacerts/
-│   │   │   └── tlscacerts/
-│   │   ├── peers/
-│   │   │   └── peer0.org1.example.com/
-│   │   │       ├── msp/                ← Identity của peer0.org1
-│   │   │       └── tls/                ← TLS certs của peer0.org1
-│   │   └── users/
-│   │       └── Admin@org1.example.com/
-│   │           └── msp/                ← Identity của Admin Org1
-│   └── org2.example.com/               ← Tương tự Org1
-└── ordererOrganizations/
-    └── example.com/
-        ├── msp/                        ← MSP của OrdererOrg
-        ├── orderers/
-        │   └── orderer.example.com/
-        │       ├── msp/                ← Identity của orderer
-        │       └── tls/                ← TLS certs của orderer
-        └── users/
-            └── Admin@example.com/
+<thư mục làm việc>/
+├── fabric-samples/                     ← Binaries + chaincode mẫu (Bước 0)
+├── configs/
+│   ├── cryptogen/                      ← Cấu hình để sinh certs
+│   ├── configtx/                       ← Cấu hình channel
+│   ├── compose/                        ← Docker Compose file
+│   └── node-config/                    ← core.yaml, orderer.yaml
+├── organizations/                      ← (sinh ra ở Bước 2)
+│   ├── peerOrganizations/
+│   │   ├── org1.example.com/
+│   │   │   ├── msp/
+│   │   │   ├── peers/peer0.org1.example.com/{msp,tls}/
+│   │   │   └── users/Admin@org1.example.com/msp/
+│   │   └── org2.example.com/           ← Tương tự Org1
+│   └── ordererOrganizations/
+│       └── example.com/
+│           ├── msp/
+│           └── orderers/orderer.example.com/{msp,tls}/
+├── channel-artifacts/                  ← (sinh ra ở Bước 4)
+│   └── mychannel.block
+└── basic.tar.gz                        ← (sinh ra ở Bước 5)
 ```
 
 ---
@@ -129,7 +127,7 @@ Bước 4: Tạo channel
     peer        → join peer0.org2 vào channel
 
 Bước 5: Deploy chaincode
-    peer lifecycle chaincode package  → .tar.gz
+    peer lifecycle chaincode package  → basic.tar.gz
     peer lifecycle chaincode install  → cài lên peer0.org1 và peer0.org2
     peer lifecycle chaincode approve  → Org1 và Org2 phê duyệt
     peer lifecycle chaincode commit   → commit definition lên channel
@@ -159,7 +157,7 @@ Client
                   └─► peer0.org2 (Validate & Commit)
 ```
 
-1. **Propose**: Client gửi proposal đến các peers được chỉ định bởi endorsement policy
+1. **Propose**: Client gửi proposal đến các peers theo endorsement policy
 2. **Endorse**: Mỗi peer simulate transaction, ký kết quả và trả về
 3. **Order**: Client gửi endorsed transaction lên Orderer
 4. **Deliver**: Orderer đóng block, gửi xuống tất cả peers
@@ -169,13 +167,12 @@ Client
 
 ## 6. Files cần chuẩn bị
 
-| File | Dùng để làm gì | Tạo ở bước |
-|------|----------------|-----------|
-| `crypto-config-org1.yaml` | Định nghĩa certs cần tạo cho Org1 | 2 |
-| `crypto-config-org2.yaml` | Định nghĩa certs cần tạo cho Org2 | 2 |
-| `crypto-config-orderer.yaml` | Định nghĩa certs cần tạo cho Orderer | 2 |
-| `configtx.yaml` | Định nghĩa cấu hình channel và orderer | 4 |
-| `compose-test-net.yaml` | Docker Compose để chạy containers | 3 |
+| File | Dùng để làm gì | Tạo/dùng ở bước |
+|------|----------------|-----------------|
+| `configs/cryptogen/crypto-config-*.yaml` | Định nghĩa certs cần tạo cho từng org | 2 |
+| `configs/configtx/configtx.yaml` | Định nghĩa cấu hình channel và orderer | 4 |
+| `configs/compose/compose-test-net.yaml` | Docker Compose để chạy containers | 3 |
+| `configs/node-config/core.yaml` | Config cho peer CLI | 4, 5, 6 |
 
 ---
 

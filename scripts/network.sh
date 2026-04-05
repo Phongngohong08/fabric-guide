@@ -25,8 +25,8 @@ CRYPTOGEN_DIR="./configs/cryptogen"
 ORGANIZATIONS_DIR="./organizations"
 CHANNEL_ARTIFACTS_DIR="./channel-artifacts"
 
-# Binaries (cần có trong PATH hoặc chỉ định đường dẫn)
-# Nếu dùng fabric-samples: export PATH=$PATH:/path/to/fabric-samples/bin
+# Binaries (cần có trong PATH)
+# Chạy từ thư mục làm việc: export PATH=$PATH:$(pwd)/fabric-samples/bin
 PEER_BIN="peer"
 ORDERER_BIN="orderer"
 CRYPTOGEN_BIN="cryptogen"
@@ -176,7 +176,7 @@ deploy_chaincode() {
     log "Deploy chaincode: $CHAINCODE_NAME v$CHAINCODE_VERSION"
 
     # Đường dẫn đến chaincode (cần fabric-samples)
-    CC_SRC_PATH="../fabric-samples/asset-transfer-basic/chaincode-go"
+    CC_SRC_PATH="./fabric-samples/asset-transfer-basic/chaincode-go"
     if [ ! -d "$CC_SRC_PATH" ]; then
         echo "ERROR: Không tìm thấy chaincode tại $CC_SRC_PATH"
         echo "Cần clone fabric-samples trước (docs/00-prerequisites.md)"

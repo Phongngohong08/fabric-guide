@@ -3,10 +3,23 @@
 ## Mục tiêu
 
 Sau bước này bạn sẽ có:
-- Chaincode đã được package thành `.tar.gz`
+- Chaincode đã được package thành `basic.tar.gz`
 - Chaincode đã được install trên `peer0.org1` và `peer0.org2`
 - Cả hai org đã approve chaincode definition
 - Chaincode definition đã được commit lên channel — sẵn sàng nhận transactions
+
+---
+
+## Yêu cầu trước khi bắt đầu
+
+- Đang đứng ở thư mục làm việc
+- Bước 4 đã hoàn thành — channel `mychannel` đang hoạt động
+- Thư mục `fabric-samples/asset-transfer-basic/chaincode-go/` tồn tại:
+
+```bash
+ls fabric-samples/asset-transfer-basic/chaincode-go/
+# go.mod  go.sum  chaincode/
+```
 
 ---
 
@@ -15,73 +28,52 @@ Sau bước này bạn sẽ có:
 Fabric 2.x dùng **decentralized chaincode lifecycle** — cần sự đồng thuận của nhiều tổ chức:
 
 ```
-1. Package    → Đóng gói chaincode thành .tar.gz
-               (làm 1 lần, dùng chung cho mọi peer)
-
-2. Install    → Cài package lên từng peer
-               (làm riêng cho peer0.org1 VÀ peer0.org2)
-
-3. Approve    → Mỗi org phê duyệt definition
-               (Org1 approve + Org2 approve)
-
-4. Commit     → Sau khi đủ số org approve, commit lên channel
-               (làm 1 lần)
+1. Package   → Đóng gói chaincode thành .tar.gz (làm 1 lần)
+2. Install   → Cài package lên từng peer (riêng cho mỗi peer)
+3. Approve   → Mỗi org phê duyệt definition (Org1 và Org2)
+4. Commit    → Sau khi đủ số org approve, commit lên channel (làm 1 lần)
 ```
 
-**Tại sao cần approve từ nhiều org?**
-
-Tránh tình trạng một org tự ý thay đổi logic chaincode mà không được các bên khác đồng ý. Số lượng org cần approve được định nghĩa bởi **lifecycle policy** (mặc định: majority).
+Tại sao cần approve từ nhiều org? Để tránh một org tự ý thay đổi logic chaincode mà không được các bên khác đồng ý.
 
 ---
 
-## Chuẩn bị chaincode
+## Chuẩn bị biến môi trường dùng chung
 
-Trong ví dụ này dùng chaincode `asset-transfer-basic` từ fabric-samples (Go):
+Chạy khối này một lần, các bước sau sẽ dùng lại:
 
+```bash
+export FABRIC_CFG_PATH=$(pwd)/configs/node-config
+BASE=$(pwd)/organizations
+export ORDERER_CA=${BASE}/../organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+export ORDERER_CA=$(pwd)/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+export PEER0_ORG1_CA=$(pwd)/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export PEER0_ORG2_CA=$(pwd)/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
 ```
-fabric-samples/asset-transfer-basic/chaincode-go/
-├── go.mod
-├── go.sum
-└── chaincode/
-    └── smartcontract.go    ← Logic: CreateAsset, ReadAsset, TransferAsset, ...
-```
-
-Hoặc bạn có thể dùng chaincode của mình. Các ngôn ngữ hỗ trợ: `golang`, `node`, `java`.
 
 ---
 
 ## Bước 5.1: Package Chaincode
 
-> **Yêu cầu:** Go phải được cài và có trong PATH. Xem [docs/00-prerequisites.md](00-prerequisites.md).
-
 ```bash
-export FABRIC_CFG_PATH=$(pwd)/configs/node-config
 export GOFLAGS="-buildvcs=false"   # Cần với Go 1.18+ khi thư mục không có .git
 
 peer lifecycle chaincode package basic.tar.gz \
-  --path ../fabric-samples/asset-transfer-basic/chaincode-go \
+  --path ./fabric-samples/asset-transfer-basic/chaincode-go \
   --lang golang \
   --label basic_1.0
 ```
 
-> **Tại sao cần GOFLAGS?** Go 1.18+ mặc định cố gắng nhúng thông tin VCS (git) vào binary. Khi thư mục chaincode không nằm trong git repo (hoặc không có quyền đọc `.git`), lệnh build sẽ fail với lỗi `error obtaining VCS status`. Flag `-buildvcs=false` tắt tính năng này.
-
-**Giải thích flags:**
-- `--path`: Thư mục chứa source code chaincode
-- `--lang golang`: Ngôn ngữ lập trình (golang | node | java)
-- `--label basic_1.0`: Nhãn định danh, format thường là `<name>_<version>`
+> **Tại sao cần `GOFLAGS`?** Go 1.18+ cố nhúng thông tin VCS vào binary. Khi thư mục chaincode
+> không nằm trong git repo (hoặc không có quyền đọc `.git`), build sẽ fail với lỗi
+> `error obtaining VCS status`. Flag này tắt tính năng đó.
 
 **Kiểm tra:**
 ```bash
-ls -la basic.tar.gz
-# Thấy file .tar.gz khoảng vài trăm KB
-```
-
-**Xem nội dung package:**
-```bash
+ls -lh basic.tar.gz
 tar tzf basic.tar.gz
-# metadata.json       ← chứa label và type
-# code.tar.gz         ← source code đã được nén
+# metadata.json   ← chứa label và type
+# code.tar.gz     ← source code đã nén
 ```
 
 ---
@@ -89,9 +81,6 @@ tar tzf basic.tar.gz
 ## Bước 5.2: Install lên Peer0.Org1
 
 ```bash
-export FABRIC_CFG_PATH=$(pwd)/configs/node-config
-BASE=$(pwd)/organizations
-
 export CORE_PEER_TLS_ENABLED=true
 export CORE_PEER_LOCALMSPID="Org1MSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
@@ -101,21 +90,14 @@ export CORE_PEER_ADDRESS=localhost:7051
 peer lifecycle chaincode install basic.tar.gz
 ```
 
-**Kết quả mong đợi:**
-```
-Chaincode code package identifier: basic_1.0:xxxxxxxx...
-```
+**Lấy Package ID** (dùng ở các bước sau):
 
-**Lưu Package ID:**
 ```bash
 peer lifecycle chaincode queryinstalled
+# Package ID: basic_1.0:xxxxxxxx..., Label: basic_1.0
 
-# Output:
-# Installed chaincodes on peer:
-# Package ID: basic_1.0:7d55..., Label: basic_1.0
-
-# Gán vào biến môi trường
-export CC_PACKAGE_ID=basic_1.0:7d55...
+export CC_PACKAGE_ID=$(peer lifecycle chaincode calculatepackageid basic.tar.gz)
+echo $CC_PACKAGE_ID
 ```
 
 ---
@@ -123,7 +105,6 @@ export CC_PACKAGE_ID=basic_1.0:7d55...
 ## Bước 5.3: Install lên Peer0.Org2
 
 ```bash
-# (BASE và FABRIC_CFG_PATH đã set từ bước trên)
 export CORE_PEER_LOCALMSPID="Org2MSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
 export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
@@ -132,19 +113,17 @@ export CORE_PEER_ADDRESS=localhost:9051
 peer lifecycle chaincode install basic.tar.gz
 ```
 
-> **Lưu ý:** Package ID phải giống nhau trên cả hai peers (vì cùng một file .tar.gz).
+> Package ID phải giống nhau trên cả hai peers vì cùng một file `.tar.gz`.
 
 ---
 
 ## Bước 5.4: Approve từ Org1
 
 ```bash
-# (BASE và FABRIC_CFG_PATH đã set từ bước trên)
 export CORE_PEER_LOCALMSPID="Org1MSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
 export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
-export ORDERER_CA=$(pwd)/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
 
 peer lifecycle chaincode approveformyorg \
   --channelID mychannel \
@@ -157,21 +136,17 @@ peer lifecycle chaincode approveformyorg \
   --cafile "$ORDERER_CA"
 ```
 
-> **Tại sao cần `-o localhost:7050 --ordererTLSHostnameOverride`?**
-> Khi chạy local, peer không thể resolve hostname `orderer.example.com` từ channel config. Cần chỉ định địa chỉ orderer tường minh. `--ordererTLSHostnameOverride` để TLS verify đúng vì cert được cấp cho `orderer.example.com` nhưng kết nối qua `localhost`.
+> **Tại sao cần `--ordererTLSHostnameOverride`?**
+> TLS cert của orderer được cấp cho hostname `orderer.example.com`, nhưng khi chạy local ta kết nối
+> qua `localhost:7050`. Flag này báo cho peer biết verify TLS theo hostname `orderer.example.com`
+> dù đang kết nối qua `localhost`.
 
-**Giải thích flags:**
 | Flag | Ý nghĩa |
 |------|---------|
-| `--name basic` | Tên chaincode trên channel (có thể khác label) |
-| `--version 1.0` | Version của chaincode definition |
+| `--name basic` | Tên chaincode trên channel |
+| `--version 1.0` | Version của definition |
 | `--package-id` | Liên kết definition với package đã install |
-| `--sequence 1` | Số thứ tự lần deploy (tăng lên khi update) |
-
-**Kết quả mong đợi:**
-```
-Successfully endorsed proposal to approve chaincode
-```
+| `--sequence 1` | Số thứ tự lần deploy — tăng lên khi update |
 
 ---
 
@@ -197,8 +172,6 @@ peer lifecycle chaincode approveformyorg \
 ---
 
 ## Bước 5.6: Kiểm tra commit readiness
-
-Trước khi commit, kiểm tra đã đủ số tổ chức approve chưa (set lại env cho Org1 trước):
 
 ```bash
 export CORE_PEER_LOCALMSPID="Org1MSP"
@@ -226,21 +199,17 @@ peer lifecycle chaincode checkcommitreadiness \
 }
 ```
 
-Nếu một org vẫn `false` → chưa approve hoặc approve với tham số khác.
+Nếu một org vẫn `false` → chưa approve hoặc approve với tham số khác (version, sequence không khớp).
 
 ---
 
 ## Bước 5.7: Commit chaincode definition
 
 ```bash
-# Dùng identity Org1 để commit
 export CORE_PEER_LOCALMSPID="Org1MSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
 export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
-
-PEER0_ORG1_CA=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
-PEER0_ORG2_CA=${BASE}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
 
 peer lifecycle chaincode commit \
   --channelID mychannel \
@@ -256,32 +225,19 @@ peer lifecycle chaincode commit \
   --tlsRootCertFiles "$PEER0_ORG2_CA"
 ```
 
-**Giải thích `--peerAddresses`:**
-- Commit cần endorsements từ các peers theo endorsement policy
-- Phải chỉ định ít nhất 1 peer từ mỗi org tham gia
-- `--tlsRootCertFiles`: TLS CA cert tương ứng với mỗi peer
+> `--peerAddresses` chỉ định peers để lấy endorsement khi commit.
+> Cần ít nhất 1 peer từ mỗi org.
 
-**Kết quả mong đợi:**
-```
-Chaincode definition committed on channel 'mychannel'
-```
-
----
-
-## Bước 5.8: Kiểm tra chaincode đã committed
-
+**Kiểm tra:**
 ```bash
 peer lifecycle chaincode querycommitted \
   --channelID mychannel \
   --name basic \
   --cafile "$ORDERER_CA"
-```
 
-**Kết quả mong đợi:**
-```
-Committed chaincode definition for chaincode 'basic' on channel 'mychannel':
-Version: 1.0, Sequence: 1, Endorsement Plugin: escc, Validation Plugin: vscc,
-Approvals: [Org1MSP: true, Org2MSP: true]
+# Output:
+# Committed chaincode definition for chaincode 'basic' on channel 'mychannel':
+# Version: 1.0, Sequence: 1, Approvals: [Org1MSP: true, Org2MSP: true]
 ```
 
 ---
@@ -291,12 +247,12 @@ Approvals: [Org1MSP: true, Org2MSP: true]
 Khi cần thay đổi logic chaincode:
 
 1. Sửa code
-2. Package lại với label mới: `basic_2.0`
+2. Package lại: `--label basic_2.0`
 3. Install trên các peers
 4. Approve với `--version 2.0 --sequence 2`
 5. Commit với `--version 2.0 --sequence 2`
 
-> `--sequence` tăng lên 1 mỗi lần update (không thể giảm).
+> `--sequence` tăng lên 1 mỗi lần update, không thể giảm.
 
 ---
 
@@ -304,15 +260,15 @@ Khi cần thay đổi logic chaincode:
 
 ### `chaincode definition not agreed to by this org`
 
-Các tham số trong approve không khớp giữa các org. Kiểm tra `--version` và `--sequence` phải giống nhau.
+Tham số approve không khớp giữa các org. Kiểm tra `--version` và `--sequence` phải giống nhau.
 
 ### `Error: failed to send transaction`
 
-Không kết nối được tới orderer. Kiểm tra `$ORDERER_CA` và orderer có đang chạy không.
+Không kết nối được tới orderer. Kiểm tra `$ORDERER_CA` và orderer đang chạy.
 
 ### `Error: could not assemble transaction: ProposalResponsePayloads do not match`
 
-Hai peers trả về kết quả khác nhau khi simulate. Thường do code chaincode không deterministic (dùng random, time, ...).
+Hai peers trả về kết quả khác nhau khi simulate. Thường do chaincode dùng random, time, hoặc các giá trị không deterministic.
 
 ---
 
