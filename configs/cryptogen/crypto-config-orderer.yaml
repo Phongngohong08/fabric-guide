@@ -1,0 +1,19 @@
+# Cấu hình sinh certificates cho Orderer Organization
+#
+# Dùng với lệnh:
+#   cryptogen generate --config=crypto-config-orderer.yaml --output=../../organizations
+#
+# Kết quả: organizations/ordererOrganizations/example.com/
+
+OrdererOrgs:
+  - Name: Orderer                   # Tên tổ chức → MSP ID sẽ là "OrdererMSP"
+    Domain: example.com             # Domain → hostname: orderer.example.com
+
+    EnableNodeOUs: true
+
+    # Specs: khai báo tường minh từng orderer node (thay vì dùng Template.Count)
+    Specs:
+      - Hostname: orderer           # → orderer.example.com
+        SANS:
+          - localhost               # Cho phép kết nối qua localhost (dùng khi test)
+                                    # SANS = Subject Alternative Names trong TLS cert

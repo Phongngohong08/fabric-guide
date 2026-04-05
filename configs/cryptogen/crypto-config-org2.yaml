@@ -1,0 +1,15 @@
+# Cấu hình sinh certificates cho Org2 (Peer Organization)
+#
+# Dùng với lệnh:
+#   cryptogen generate --config=crypto-config-org2.yaml --output=../../organizations
+
+PeerOrgs:
+  - Name: Org2
+    Domain: org2.example.com
+    EnableNodeOUs: true
+
+    Template:
+      Count: 1                      # Tạo peer0.org2.example.com
+
+    Users:
+      Count: 1                      # Tạo User1@org2.example.com

@@ -1,0 +1,207 @@
+# configtx.yaml — Cấu hình channel và orderer
+#
+# Dùng với lệnh:
+#   export FABRIC_CFG_PATH=./configs/configtx
+#   configtxgen -profile ChannelUsingRaft -outputBlock ./channel-artifacts/mychannel.block -channelID mychannel
+#
+# Đường dẫn MSPDir là tương đối so với FABRIC_CFG_PATH
+
+---
+
+################################################################################
+# Organizations: Định nghĩa các tổ chức tham gia mạng
+################################################################################
+Organizations:
+
+  # OrdererOrg — tổ chức sở hữu orderer nodes
+  - &OrdererOrg
+    Name: OrdererOrg
+    ID: OrdererMSP                  # MSP ID — phải khớp với ORDERER_GENERAL_LOCALMSPID trong docker compose
+    MSPDir: ../../organizations/ordererOrganizations/example.com/msp
+
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('OrdererMSP.member')"
+      Writers:
+        Type: Signature
+        Rule: "OR('OrdererMSP.member')"
+      Admins:
+        Type: Signature
+        Rule: "OR('OrdererMSP.admin')"
+
+    OrdererEndpoints:
+      - orderer.example.com:7050
+
+  # Org1 — tổ chức sở hữu peer0.org1
+  - &Org1
+    Name: Org1MSP
+    ID: Org1MSP                     # MSP ID — phải khớp với CORE_PEER_LOCALMSPID trong docker compose
+    MSPDir: ../../organizations/peerOrganizations/org1.example.com/msp
+
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('Org1MSP.admin', 'Org1MSP.peer', 'Org1MSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('Org1MSP.admin', 'Org1MSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('Org1MSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('Org1MSP.peer')"
+
+    # Anchor peer: đại diện của Org1 để gossip với org khác
+    AnchorPeers:
+      - Host: peer0.org1.example.com
+        Port: 7051
+
+  # Org2 — tổ chức sở hữu peer0.org2
+  - &Org2
+    Name: Org2MSP
+    ID: Org2MSP
+    MSPDir: ../../organizations/peerOrganizations/org2.example.com/msp
+
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('Org2MSP.admin', 'Org2MSP.peer', 'Org2MSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('Org2MSP.admin', 'Org2MSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('Org2MSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('Org2MSP.peer')"
+
+    AnchorPeers:
+      - Host: peer0.org2.example.com
+        Port: 9051
+
+################################################################################
+# Capabilities: Phiên bản tính năng tối thiểu các node phải hỗ trợ
+################################################################################
+Capabilities:
+  # Channel capabilities: áp dụng cho cả orderer và peer
+  Channel: &ChannelCapabilities
+    V2_0: true
+
+  # Orderer capabilities
+  Orderer: &OrdererCapabilities
+    V2_0: true
+
+  # Application capabilities: áp dụng cho peers (chaincode execution)
+  Application: &ApplicationCapabilities
+    V2_5: true                      # v2.5 hỗ trợ private data purge
+
+################################################################################
+# Application: Cấu hình mặc định cho phần application của channel
+################################################################################
+Application: &ApplicationDefaults
+  Organizations:                    # Sẽ được override trong Profiles
+
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    LifecycleEndorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"  # Majority orgs phải endorse chaincode lifecycle
+    Endorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"  # Majority orgs phải endorse transactions
+
+  Capabilities:
+    <<: *ApplicationCapabilities
+
+################################################################################
+# Orderer: Cấu hình ordering service
+################################################################################
+Orderer: &OrdererDefaults
+
+  # Loại consensus: etcdraft (Raft) là standard từ Fabric 2.x
+  OrdererType: etcdraft
+
+  BatchTimeout: 2s                  # Đợi tối đa 2 giây trước khi đóng block
+
+  BatchSize:
+    MaxMessageCount: 10             # Tối đa 10 transactions mỗi block
+    AbsoluteMaxBytes: 99 MB         # Kích thước tối đa tuyệt đối của block
+    PreferredMaxBytes: 512 KB       # Kích thước mong muốn (đóng block sớm hơn nếu đạt)
+
+  # Raft consensus configuration
+  EtcdRaft:
+    Consenters:
+      # Mỗi orderer node trong cluster phải được liệt kê ở đây
+      - Host: orderer.example.com
+        Port: 7050
+        # TLS cert của orderer node — dùng để verify trong Raft cluster
+        ClientTLSCert: ../../organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
+        ServerTLSCert: ../../organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
+
+  Organizations:                    # Sẽ được override trong Profiles
+
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    BlockValidation:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+
+  Capabilities:
+    <<: *OrdererCapabilities
+
+################################################################################
+# Channel: Cấu hình mặc định cho channel
+################################################################################
+Channel: &ChannelDefaults
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+
+  Capabilities:
+    <<: *ChannelCapabilities
+
+################################################################################
+# Profiles: Template để sinh genesis block
+################################################################################
+Profiles:
+
+  # Profile cho mạng dùng Raft consensus (chuẩn)
+  ChannelUsingRaft:
+    <<: *ChannelDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      Organizations:
+        - *OrdererOrg
+      Capabilities: *OrdererCapabilities
+    Application:
+      <<: *ApplicationDefaults
+      Organizations:
+        - *Org1
+        - *Org2
+      Capabilities: *ApplicationCapabilities
