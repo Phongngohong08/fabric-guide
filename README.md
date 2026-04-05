@@ -45,9 +45,12 @@ fabric-guide/
 ├── configs/                     # File cấu hình mẫu
 │   ├── cryptogen/               # Cấu hình sinh certificate
 │   ├── configtx/                # Cấu hình channel & orderer
-│   └── compose/                 # Docker Compose files
+│   ├── compose/                 # Docker Compose files
+│   └── node-config/             # core.yaml, orderer.yaml (copy từ fabric-samples/config/)
 └── scripts/                     # Scripts tiện ích
 ```
+
+> **Lưu ý về `configs/node-config/`:** Thư mục này chứa `core.yaml` và `orderer.yaml` — file config runtime cho peer và orderer. Copy từ `fabric-samples/config/` sau khi cài binaries (xem bước 0).
 
 ## Thứ tự đọc tài liệu
 

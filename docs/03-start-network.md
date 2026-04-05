@@ -17,6 +17,20 @@ Bước 2 đã tạo xong, thư mục `organizations/` phải tồn tại:
 ls organizations/peerOrganizations/ organizations/ordererOrganizations/
 ```
 
+Thư mục `configs/node-config/` phải có `core.yaml` và `orderer.yaml`:
+
+```bash
+ls configs/node-config/
+# core.yaml  orderer.yaml
+```
+
+Nếu chưa có, copy từ fabric-samples:
+```bash
+mkdir -p configs/node-config
+cp /path/to/fabric-samples/config/core.yaml configs/node-config/
+cp /path/to/fabric-samples/config/orderer.yaml configs/node-config/
+```
+
 ---
 
 ## 2. File Docker Compose
@@ -121,9 +135,11 @@ services:
 # Đặt biến môi trường
 export DOCKER_SOCK=/var/run/docker.sock
 
-# Khởi động tất cả containers
+# Khởi động tất cả containers (chạy từ thư mục gốc project)
 docker compose -f configs/compose/compose-test-net.yaml up -d
 ```
+
+> **Lưu ý:** Bạn có thể thấy warning `the attribute 'version' is obsolete` — đây là warning bình thường từ Docker Compose v2, không ảnh hưởng đến hoạt động.
 
 ### Theo dõi logs:
 

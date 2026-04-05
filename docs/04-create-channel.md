@@ -82,9 +82,14 @@ Profiles:
 
 **Genesis block** là block đầu tiên của channel, chứa toàn bộ cấu hình ban đầu.
 
+> **Quan trọng về FABRIC_CFG_PATH:**
+> - Khi dùng `configtxgen`: set về `./configs/configtx` (chứa `configtx.yaml`)
+> - Khi dùng `peer`: set về `./configs/node-config` (chứa `core.yaml`)
+> - Hai lệnh này cần FABRIC_CFG_PATH khác nhau — nhớ set lại trước mỗi nhóm lệnh.
+
 ```bash
-# Set FABRIC_CFG_PATH để configtxgen tìm thấy configtx.yaml
-export FABRIC_CFG_PATH=./configs/configtx
+# Set FABRIC_CFG_PATH cho configtxgen (cần configtx.yaml)
+export FABRIC_CFG_PATH=$(pwd)/configs/configtx
 
 mkdir -p channel-artifacts
 
@@ -151,12 +156,18 @@ osnadmin channel list \
 
 Mỗi lần gọi lệnh `peer`, cần set environment variables xác định đang dùng identity của peer nào:
 
+> **Quan trọng:** Dùng **absolute paths** cho `CORE_PEER_TLS_ROOTCERT_FILE` và `CORE_PEER_MSPCONFIGPATH`. Nếu dùng relative paths (`./organizations/...`), peer sẽ resolve chúng relative theo `FABRIC_CFG_PATH` thay vì working directory, dẫn đến lỗi `path does not exist`.
+
 ```bash
-# Set env cho Org1
+# Set FABRIC_CFG_PATH cho peer (cần core.yaml)
+export FABRIC_CFG_PATH=$(pwd)/configs/node-config
+BASE=$(pwd)/organizations
+
+# Set env cho Org1 — dùng absolute paths
 export CORE_PEER_TLS_ENABLED=true
 export CORE_PEER_LOCALMSPID="Org1MSP"
-export CORE_PEER_TLS_ROOTCERT_FILE=./organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=./organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
 
 # Join channel
@@ -179,10 +190,10 @@ peer channel list
 ## 5. Join Peer0.Org2 vào channel
 
 ```bash
-# Set env cho Org2
+# Set env cho Org2 (giữ nguyên FABRIC_CFG_PATH và BASE từ bước trên)
 export CORE_PEER_LOCALMSPID="Org2MSP"
-export CORE_PEER_TLS_ROOTCERT_FILE=./organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=./organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
 export CORE_PEER_ADDRESS=localhost:9051
 
 # Join channel
@@ -279,9 +290,13 @@ Lặp lại tương tự cho Org2 (thay `Org1MSP` → `Org2MSP`, port `7051` →
 
 ```bash
 # Kiểm tra peer0.org1 đã join channel
+export FABRIC_CFG_PATH=$(pwd)/configs/node-config
+BASE=$(pwd)/organizations
+
+export CORE_PEER_TLS_ENABLED=true
 export CORE_PEER_LOCALMSPID="Org1MSP"
-export CORE_PEER_TLS_ROOTCERT_FILE=./organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=./organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
 
 peer channel getinfo -c mychannel

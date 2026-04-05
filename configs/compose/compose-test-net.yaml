@@ -8,9 +8,13 @@
 # Chạy từ thư mục gốc của project:
 #   docker compose -f configs/compose/compose-test-net.yaml up -d
 #
-# Yêu cầu: thư mục organizations/ đã được tạo bởi cryptogen (Bước 2)
-
-version: '3.7'
+# Yêu cầu:
+#   - organizations/ đã được tạo bởi cryptogen (Bước 2)
+#   - configs/node-config/ chứa core.yaml và orderer.yaml (copy từ fabric-samples/config/)
+#
+# Lưu ý paths trong volumes: relative so với vị trí của compose file này (configs/compose/)
+#   ../../organizations/  →  fabric-guide/organizations/
+#   ../node-config/       →  fabric-guide/configs/node-config/
 
 volumes:
   orderer.example.com:
@@ -133,8 +137,8 @@ services:
       - ../../organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls:/etc/hyperledger/fabric/tls
       # Docker socket: cho phép peer tạo chaincode Docker containers
       - /var/run/docker.sock:/host/var/run/docker.sock
-      # core.yaml: config mặc định cho peer (từ fabric-samples/config/)
-      - ../../fabric-samples/config:/etc/hyperledger/peercfg
+      # core.yaml: config mặc định cho peer (copy từ fabric-samples/config/)
+      - ../node-config:/etc/hyperledger/peercfg
       # Persistent data
       - peer0.org1.example.com:/var/hyperledger/production
 
@@ -190,7 +194,7 @@ services:
       - ../../organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/msp:/etc/hyperledger/fabric/msp
       - ../../organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls:/etc/hyperledger/fabric/tls
       - /var/run/docker.sock:/host/var/run/docker.sock
-      - ../../fabric-samples/config:/etc/hyperledger/peercfg
+      - ../node-config:/etc/hyperledger/peercfg
       - peer0.org2.example.com:/var/hyperledger/production
 
     working_dir: /root

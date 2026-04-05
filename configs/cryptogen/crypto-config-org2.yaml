@@ -10,6 +10,8 @@ PeerOrgs:
 
     Template:
       Count: 1                      # Tạo peer0.org2.example.com
+      SANS:
+        - localhost                 # Cho phép kết nối qua localhost
 
     Users:
       Count: 1                      # Tạo User1@org2.example.com

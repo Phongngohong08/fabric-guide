@@ -14,6 +14,8 @@ PeerOrgs:
     # Tạo peers tự động theo pattern: peer0, peer1, ...
     Template:
       Count: 1                      # Số lượng peers (tạo peer0.org1.example.com)
+      SANS:
+        - localhost                 # Cho phép kết nối qua localhost (cần khi test local)
 
     # Users: Admin luôn được tạo tự động
     # Count ở đây là số user thường ngoài Admin

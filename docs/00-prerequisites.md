@@ -91,11 +91,24 @@ fabric-samples/
 
 ---
 
-## 3. Thêm binaries vào PATH
+## 3. Cài Go (cần để package chaincode Go)
+
+```bash
+curl -sSL https://go.dev/dl/go1.21.13.linux-amd64.tar.gz -o /tmp/go.tar.gz
+sudo tar -C /usr/local -xzf /tmp/go.tar.gz
+```
+
+Kiểm tra:
+```bash
+/usr/local/go/bin/go version
+# go version go1.21.13 linux/amd64
+```
+
+## 4. Thêm binaries vào PATH
 
 ```bash
 # Thêm vào ~/.bashrc hoặc ~/.zshrc
-export PATH=$PATH:$(pwd)/fabric-samples/bin
+export PATH=$PATH:$(pwd)/fabric-samples/bin:/usr/local/go/bin
 export FABRIC_CFG_PATH=$(pwd)/fabric-samples/config
 ```
 
@@ -123,11 +136,14 @@ configtxgen --version
 # Output mẫu:
 # configtxgen:
 #  Version: 2.5.x
+
+go version
+# go version go1.21.x linux/amd64
 ```
 
 ---
 
-## 4. Kiểm tra Docker images
+## 5. Kiểm tra Docker images
 
 ```bash
 docker images | grep hyperledger
@@ -154,6 +170,7 @@ Chạy lệnh sau để xác nhận mọi thứ đã sẵn sàng:
 which peer && peer version | head -2
 which cryptogen && cryptogen version | head -2
 which configtxgen && configtxgen --version | head -2
+go version
 
 # Docker đang chạy
 docker info | grep "Server Version"

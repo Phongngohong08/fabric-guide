@@ -52,12 +52,19 @@ Hoặc bạn có thể dùng chaincode của mình. Các ngôn ngữ hỗ trợ:
 
 ## Bước 5.1: Package Chaincode
 
+> **Yêu cầu:** Go phải được cài và có trong PATH. Xem [docs/00-prerequisites.md](00-prerequisites.md).
+
 ```bash
+export FABRIC_CFG_PATH=$(pwd)/configs/node-config
+export GOFLAGS="-buildvcs=false"   # Cần với Go 1.18+ khi thư mục không có .git
+
 peer lifecycle chaincode package basic.tar.gz \
   --path ../fabric-samples/asset-transfer-basic/chaincode-go \
   --lang golang \
   --label basic_1.0
 ```
+
+> **Tại sao cần GOFLAGS?** Go 1.18+ mặc định cố gắng nhúng thông tin VCS (git) vào binary. Khi thư mục chaincode không nằm trong git repo (hoặc không có quyền đọc `.git`), lệnh build sẽ fail với lỗi `error obtaining VCS status`. Flag `-buildvcs=false` tắt tính năng này.
 
 **Giải thích flags:**
 - `--path`: Thư mục chứa source code chaincode
@@ -82,10 +89,13 @@ tar tzf basic.tar.gz
 ## Bước 5.2: Install lên Peer0.Org1
 
 ```bash
+export FABRIC_CFG_PATH=$(pwd)/configs/node-config
+BASE=$(pwd)/organizations
+
 export CORE_PEER_TLS_ENABLED=true
 export CORE_PEER_LOCALMSPID="Org1MSP"
-export CORE_PEER_TLS_ROOTCERT_FILE=./organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=./organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
 
 peer lifecycle chaincode install basic.tar.gz
@@ -113,9 +123,10 @@ export CC_PACKAGE_ID=basic_1.0:7d55...
 ## Bước 5.3: Install lên Peer0.Org2
 
 ```bash
+# (BASE và FABRIC_CFG_PATH đã set từ bước trên)
 export CORE_PEER_LOCALMSPID="Org2MSP"
-export CORE_PEER_TLS_ROOTCERT_FILE=./organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=./organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
 export CORE_PEER_ADDRESS=localhost:9051
 
 peer lifecycle chaincode install basic.tar.gz
@@ -128,11 +139,12 @@ peer lifecycle chaincode install basic.tar.gz
 ## Bước 5.4: Approve từ Org1
 
 ```bash
+# (BASE và FABRIC_CFG_PATH đã set từ bước trên)
 export CORE_PEER_LOCALMSPID="Org1MSP"
-export CORE_PEER_TLS_ROOTCERT_FILE=./organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=./organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
-export ORDERER_CA=./organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+export ORDERER_CA=$(pwd)/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
 
 peer lifecycle chaincode approveformyorg \
   --channelID mychannel \
@@ -140,9 +152,13 @@ peer lifecycle chaincode approveformyorg \
   --version 1.0 \
   --package-id $CC_PACKAGE_ID \
   --sequence 1 \
+  -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com \
   --tls \
   --cafile "$ORDERER_CA"
 ```
+
+> **Tại sao cần `-o localhost:7050 --ordererTLSHostnameOverride`?**
+> Khi chạy local, peer không thể resolve hostname `orderer.example.com` từ channel config. Cần chỉ định địa chỉ orderer tường minh. `--ordererTLSHostnameOverride` để TLS verify đúng vì cert được cấp cho `orderer.example.com` nhưng kết nối qua `localhost`.
 
 **Giải thích flags:**
 | Flag | Ý nghĩa |
@@ -163,8 +179,8 @@ Successfully endorsed proposal to approve chaincode
 
 ```bash
 export CORE_PEER_LOCALMSPID="Org2MSP"
-export CORE_PEER_TLS_ROOTCERT_FILE=./organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=./organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
 export CORE_PEER_ADDRESS=localhost:9051
 
 peer lifecycle chaincode approveformyorg \
@@ -173,6 +189,7 @@ peer lifecycle chaincode approveformyorg \
   --version 1.0 \
   --package-id $CC_PACKAGE_ID \
   --sequence 1 \
+  -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com \
   --tls \
   --cafile "$ORDERER_CA"
 ```
@@ -181,9 +198,14 @@ peer lifecycle chaincode approveformyorg \
 
 ## Bước 5.6: Kiểm tra commit readiness
 
-Trước khi commit, kiểm tra đã đủ số tổ chức approve chưa:
+Trước khi commit, kiểm tra đã đủ số tổ chức approve chưa (set lại env cho Org1 trước):
 
 ```bash
+export CORE_PEER_LOCALMSPID="Org1MSP"
+export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_ADDRESS=localhost:7051
+
 peer lifecycle chaincode checkcommitreadiness \
   --channelID mychannel \
   --name basic \
@@ -211,22 +233,27 @@ Nếu một org vẫn `false` → chưa approve hoặc approve với tham số k
 ## Bước 5.7: Commit chaincode definition
 
 ```bash
+# Dùng identity Org1 để commit
 export CORE_PEER_LOCALMSPID="Org1MSP"
-export CORE_PEER_TLS_ROOTCERT_FILE=./organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=./organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_TLS_ROOTCERT_FILE=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${BASE}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
 export CORE_PEER_ADDRESS=localhost:7051
+
+PEER0_ORG1_CA=${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+PEER0_ORG2_CA=${BASE}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
 
 peer lifecycle chaincode commit \
   --channelID mychannel \
   --name basic \
   --version 1.0 \
   --sequence 1 \
+  -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com \
   --tls \
   --cafile "$ORDERER_CA" \
   --peerAddresses localhost:7051 \
-  --tlsRootCertFiles ./organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt \
+  --tlsRootCertFiles "$PEER0_ORG1_CA" \
   --peerAddresses localhost:9051 \
-  --tlsRootCertFiles ./organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+  --tlsRootCertFiles "$PEER0_ORG2_CA"
 ```
 
 **Giải thích `--peerAddresses`:**

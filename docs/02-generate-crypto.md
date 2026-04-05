@@ -23,6 +23,8 @@ PeerOrgs:
     EnableNodeOUs: true       # Phân biệt peer/client/admin bằng OU
     Template:
       Count: 1                # Tạo 1 peer (peer0)
+      SANS:
+        - localhost           # QUAN TRỌNG: cần để kết nối qua localhost khi test
     Users:
       Count: 1                # Tạo 1 user ngoài Admin
 ```
@@ -35,11 +37,12 @@ PeerOrgs:
   - `client` OU → clients/users
   - `admin` OU → admins
 - `Template.Count: 1`: Tạo peer0, peer1, ... (nếu Count > 1)
+- `Template.SANS`: Subject Alternative Names trong TLS cert của peer. Cần có `localhost` để kết nối từ host machine qua `localhost:7051`. Nếu thiếu, sẽ gặp lỗi `x509: certificate is valid for peer0.org1.example.com, not localhost`.
 - `Users.Count: 1`: Tạo thêm 1 user thường (User1). Admin luôn được tạo tự động.
 
 ### crypto-config-org2.yaml
 
-Tương tự Org1, đổi `Name: Org2` và `Domain: org2.example.com`.
+Tương tự Org1, đổi `Name: Org2` và `Domain: org2.example.com`. Cũng cần `SANS: [localhost]` trong Template.
 
 ### crypto-config-orderer.yaml
 

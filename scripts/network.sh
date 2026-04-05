@@ -59,18 +59,25 @@ check_prereqs() {
 }
 
 set_org1_env() {
+    # Dùng absolute paths — peer resolve relative paths từ FABRIC_CFG_PATH, không phải PWD
+    local BASE
+    BASE=$(pwd)/organizations
+    export FABRIC_CFG_PATH=$(pwd)/configs/node-config
     export CORE_PEER_TLS_ENABLED=true
     export CORE_PEER_LOCALMSPID="Org1MSP"
-    export CORE_PEER_TLS_ROOTCERT_FILE="${ORGANIZATIONS_DIR}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt"
-    export CORE_PEER_MSPCONFIGPATH="${ORGANIZATIONS_DIR}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp"
+    export CORE_PEER_TLS_ROOTCERT_FILE="${BASE}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt"
+    export CORE_PEER_MSPCONFIGPATH="${BASE}/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp"
     export CORE_PEER_ADDRESS=localhost:7051
 }
 
 set_org2_env() {
+    local BASE
+    BASE=$(pwd)/organizations
+    export FABRIC_CFG_PATH=$(pwd)/configs/node-config
     export CORE_PEER_TLS_ENABLED=true
     export CORE_PEER_LOCALMSPID="Org2MSP"
-    export CORE_PEER_TLS_ROOTCERT_FILE="${ORGANIZATIONS_DIR}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt"
-    export CORE_PEER_MSPCONFIGPATH="${ORGANIZATIONS_DIR}/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp"
+    export CORE_PEER_TLS_ROOTCERT_FILE="${BASE}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt"
+    export CORE_PEER_MSPCONFIGPATH="${BASE}/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp"
     export CORE_PEER_ADDRESS=localhost:9051
 }
 
@@ -120,19 +127,19 @@ create_channel() {
 
     mkdir -p "$CHANNEL_ARTIFACTS_DIR"
 
-    # Sinh genesis block
+    # Sinh genesis block (cần FABRIC_CFG_PATH trỏ đến configtx.yaml)
     echo "[1/4] Sinh genesis block..."
-    export FABRIC_CFG_PATH="$CONFIGTX_DIR"
+    export FABRIC_CFG_PATH=$(pwd)/configs/configtx
     $CONFIGTXGEN_BIN \
         -profile ChannelUsingRaft \
         -outputBlock "${CHANNEL_ARTIFACTS_DIR}/${CHANNEL_NAME}.block" \
         -channelID "$CHANNEL_NAME"
     echo "✓ Genesis block: ${CHANNEL_ARTIFACTS_DIR}/${CHANNEL_NAME}.block"
 
-    # Biến TLS cho orderer admin API
-    export ORDERER_CA="${ORGANIZATIONS_DIR}/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem"
-    export ORDERER_ADMIN_TLS_SIGN_CERT="${ORGANIZATIONS_DIR}/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt"
-    export ORDERER_ADMIN_TLS_PRIVATE_KEY="${ORGANIZATIONS_DIR}/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.key"
+    # Biến TLS cho orderer admin API (absolute paths)
+    export ORDERER_CA=$(pwd)/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+    export ORDERER_ADMIN_TLS_SIGN_CERT=$(pwd)/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
+    export ORDERER_ADMIN_TLS_PRIVATE_KEY=$(pwd)/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.key
 
     # Tạo channel trên orderer
     echo "[2/4] Tạo channel trên orderer..."
@@ -176,12 +183,13 @@ deploy_chaincode() {
         exit 1
     fi
 
-    export ORDERER_CA="${ORGANIZATIONS_DIR}/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem"
-    export PEER0_ORG1_CA="${ORGANIZATIONS_DIR}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt"
-    export PEER0_ORG2_CA="${ORGANIZATIONS_DIR}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt"
+    export ORDERER_CA=$(pwd)/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+    export PEER0_ORG1_CA=$(pwd)/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    export PEER0_ORG2_CA=$(pwd)/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
 
-    # Package
+    # Package (GOFLAGS cần thiết với Go 1.18+ khi không có .git)
     echo "[1/5] Package chaincode..."
+    export GOFLAGS="-buildvcs=false"
     $PEER_BIN lifecycle chaincode package ${CHAINCODE_NAME}.tar.gz \
         --path "$CC_SRC_PATH" \
         --lang golang \
@@ -214,6 +222,7 @@ deploy_chaincode() {
         --version "$CHAINCODE_VERSION" \
         --package-id "$CC_PACKAGE_ID" \
         --sequence "$CHAINCODE_SEQUENCE" \
+        -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com \
         --tls \
         --cafile "$ORDERER_CA"
     echo "✓ Org1 đã approve"
@@ -227,6 +236,7 @@ deploy_chaincode() {
         --version "$CHAINCODE_VERSION" \
         --package-id "$CC_PACKAGE_ID" \
         --sequence "$CHAINCODE_SEQUENCE" \
+        -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com \
         --tls \
         --cafile "$ORDERER_CA"
     echo "✓ Org2 đã approve"
@@ -251,6 +261,7 @@ deploy_chaincode() {
         --name "$CHAINCODE_NAME" \
         --version "$CHAINCODE_VERSION" \
         --sequence "$CHAINCODE_SEQUENCE" \
+        -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com \
         --tls \
         --cafile "$ORDERER_CA" \
         --peerAddresses localhost:7051 \
@@ -270,9 +281,9 @@ deploy_chaincode() {
 test_chaincode() {
     log "Test chaincode"
 
-    export ORDERER_CA="${ORGANIZATIONS_DIR}/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem"
-    export PEER0_ORG1_CA="${ORGANIZATIONS_DIR}/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt"
-    export PEER0_ORG2_CA="${ORGANIZATIONS_DIR}/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt"
+    local ORDERER_CA=$(pwd)/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
+    local PEER0_ORG1_CA=$(pwd)/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    local PEER0_ORG2_CA=$(pwd)/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
 
     set_org1_env
 
