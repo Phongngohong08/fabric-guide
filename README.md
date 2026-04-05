@@ -1,17 +1,19 @@
 # Fabric Guide — Hướng dẫn chạy mạng Hyperledger Fabric
 
-Dự án này hướng dẫn từng bước cách khởi chạy một mạng Hyperledger Fabric cơ bản, dựa trên [test-network](https://github.com/hyperledger/fabric-samples/tree/main/test-network) chính thức.
+Dự án này hướng dẫn từng bước cách khởi chạy một mạng Hyperledger Fabric cơ bản từ đầu.
 
-## Mục tiêu
+## Bắt đầu
 
-Sau khi đọc xong tài liệu này, bạn có thể:
-- Hiểu các thành phần của một mạng Fabric
-- Tạo được certificate cho các tổ chức
-- Khởi động được mạng gồm 1 orderer và 2 peer
-- Tạo channel và join peers vào channel
-- Deploy và gọi chaincode
+```bash
+git clone <url-repo-này> fabric-guide
+cd fabric-guide
+```
 
-## Kiến trúc mạng cơ bản
+Từ đây, **toàn bộ hướng dẫn đều chạy trong thư mục `fabric-guide/`** này.
+
+---
+
+## Kiến trúc mạng
 
 ```
                     ┌─────────────────────┐
@@ -29,58 +31,67 @@ Sau khi đọc xong tài liệu này, bạn có thể:
    └─────────────────────┘           └─────────────────────┘
 ```
 
+---
+
 ## Cấu trúc thư mục
 
 ```
-fabric-guide/
-├── README.md                    # File này
-├── docs/                        # Tài liệu từng bước
-│   ├── 00-prerequisites.md      # Bước 0: Cài đặt môi trường
-│   ├── 01-network-overview.md   # Bước 1: Tổng quan các thành phần
-│   ├── 02-generate-crypto.md    # Bước 2: Tạo certificates
-│   ├── 03-start-network.md      # Bước 3: Khởi động mạng
-│   ├── 04-create-channel.md     # Bước 4: Tạo channel
-│   ├── 05-deploy-chaincode.md   # Bước 5: Deploy chaincode
-│   └── 06-invoke-query.md       # Bước 6: Giao dịch & Query
-├── configs/                     # File cấu hình mẫu
-│   ├── cryptogen/               # Cấu hình sinh certificate
-│   ├── configtx/                # Cấu hình channel & orderer
-│   ├── compose/                 # Docker Compose files
-│   └── node-config/             # core.yaml, orderer.yaml (copy từ fabric-samples/config/)
-└── scripts/                     # Scripts tiện ích
+fabric-guide/                        ← Thư mục làm việc (repo này)
+│
+├── docs/                            ← Tài liệu từng bước (đọc theo thứ tự)
+├── configs/                         ← File cấu hình (có sẵn trong repo)
+│   ├── cryptogen/                   ← crypto-config-*.yaml (bao gồm org3)
+│   ├── configtx/                    ← configtx.yaml (genesis block)
+│   ├── org3/                        ← configtx.yaml riêng cho Org3 (dùng với -printOrg)
+│   ├── compose/                     ← Docker Compose files (bao gồm compose-org3.yaml)
+│   └── node-config/                 ← core.yaml, orderer.yaml
+├── scripts/
+│   └── network.sh                   ← Script tiện ích (tùy chọn)
+│
+│   ── Tạo ra trong quá trình làm theo hướng dẫn ──
+│
+├── fabric-samples/                  ← Tải về ở Bước 0 (không commit)
+│   ├── bin/                         ← cryptogen, configtxgen, peer, osnadmin, ...
+│   └── asset-transfer-basic/        ← Chaincode mẫu
+├── organizations/                   ← Sinh ra ở Bước 2 (không commit)
+└── channel-artifacts/               ← Sinh ra ở Bước 4 (không commit)
 ```
 
-> **Lưu ý về `configs/node-config/`:** Thư mục này chứa `core.yaml` và `orderer.yaml` — file config runtime cho peer và orderer. Copy từ `fabric-samples/config/` sau khi cài binaries (xem bước 0).
+---
 
 ## Thứ tự đọc tài liệu
 
-| Bước | File | Mục đích |
+| Bước | File | Nội dung |
 |------|------|----------|
-| 0 | [docs/00-prerequisites.md](docs/00-prerequisites.md) | Cài đặt tools: Docker, Fabric binaries |
-| 1 | [docs/01-network-overview.md](docs/01-network-overview.md) | Hiểu các thành phần mạng Fabric |
+| 0 | [docs/00-prerequisites.md](docs/00-prerequisites.md) | Cài Docker, Go, tải Fabric binaries |
+| 1 | [docs/01-network-overview.md](docs/01-network-overview.md) | Tổng quan kiến trúc mạng |
 | 2 | [docs/02-generate-crypto.md](docs/02-generate-crypto.md) | Sinh certificates bằng cryptogen |
-| 3 | [docs/03-start-network.md](docs/03-start-network.md) | Chạy containers bằng Docker Compose |
+| 3 | [docs/03-start-network.md](docs/03-start-network.md) | Khởi động containers |
 | 4 | [docs/04-create-channel.md](docs/04-create-channel.md) | Tạo channel và join peers |
-| 5 | [docs/05-deploy-chaincode.md](docs/05-deploy-chaincode.md) | Cài và commit chaincode |
-| 6 | [docs/06-invoke-query.md](docs/06-invoke-query.md) | Gửi transaction và query ledger |
+| 5 | [docs/05-deploy-chaincode.md](docs/05-deploy-chaincode.md) | Deploy chaincode |
+| 6 | [docs/06-invoke-query.md](docs/06-invoke-query.md) | Giao dịch và query ledger |
+| 7 | [docs/07-add-org.md](docs/07-add-org.md) | Thêm Org3 vào mạng đang chạy |
 
-## Quick Start (dùng test-network có sẵn)
+---
 
-Nếu chỉ muốn chạy nhanh để xem kết quả, dùng network.sh của fabric-samples:
+## Quick Start (chạy nhanh bằng script)
+
+Nếu chỉ muốn xem kết quả, dùng `network.sh` để chạy toàn bộ pipeline tự động:
 
 ```bash
-# 1. Tải fabric-samples và binaries
-curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh | bash -s -- binary docker samples
+# Set PATH trước
+export PATH=$PATH:$(pwd)/fabric-samples/bin
 
-# 2. Vào thư mục test-network
-cd fabric-samples/test-network
-
-# 3. Khởi động mạng + tạo channel + deploy chaincode
-./network.sh up createChannel -c mychannel
-./network.sh deployCC -ccn basic -ccp ../asset-transfer-basic/chaincode-go -ccl go
-
-# 4. Dọn dẹp
-./network.sh down
+# Chạy toàn bộ: sinh certs → start network → tạo channel → deploy chaincode → test
+./scripts/network.sh all
 ```
 
-Để hiểu từng bước đang làm gì — đọc từ [docs/00-prerequisites.md](docs/00-prerequisites.md).
+Để hiểu từng bước đang làm gì, đọc từ [docs/00-prerequisites.md](docs/00-prerequisites.md).
+
+---
+
+## Dọn dẹp
+
+```bash
+./scripts/network.sh down
+```

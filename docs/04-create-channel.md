@@ -61,9 +61,11 @@ ls -lh channel-artifacts/mychannel.block
 Gửi genesis block lên orderer qua Admin API (port 7053). Lưu ý dùng **absolute paths** cho cert files:
 
 ```bash
-export ORDERER_CA=$(pwd)/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem
-export ORDERER_ADMIN_TLS_SIGN_CERT=$(pwd)/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
-export ORDERER_ADMIN_TLS_PRIVATE_KEY=$(pwd)/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.key
+# --ca-file: TLS CA của orderer node (KHÔNG dùng tlsca/)
+export ORDERER_CA=$(pwd)/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/tls/ca.crt
+# --client-cert/key: TLS client cert của Admin user (KHÔNG dùng server.crt/key)
+export ORDERER_ADMIN_TLS_SIGN_CERT=$(pwd)/organizations/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt
+export ORDERER_ADMIN_TLS_PRIVATE_KEY=$(pwd)/organizations/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key
 
 osnadmin channel join \
   --channelID mychannel \

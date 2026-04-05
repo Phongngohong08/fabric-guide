@@ -5,194 +5,148 @@
 Sau bước này bạn sẽ có:
 - Docker và Docker Compose đang chạy
 - Go đã cài
-- Fabric binaries (`peer`, `orderer`, `cryptogen`, `configtxgen`) trong PATH
+- Fabric binaries (`peer`, `orderer`, `cryptogen`, `configtxgen`, `osnadmin`) trong PATH
 - Fabric Docker images đã pull về máy
-- Thư mục làm việc đã sẵn sàng để chạy các bước tiếp theo
 
 ---
 
-## 1. Tạo thư mục làm việc
+## Yêu cầu: Clone repo này trước
 
-Chọn một thư mục để làm nơi chứa toàn bộ project. Ví dụ:
+Toàn bộ hướng dẫn sử dụng các file cấu hình có sẵn trong repo (`configs/`).
+Clone repo về và `cd` vào — đây sẽ là **thư mục làm việc** cho mọi bước:
 
 ```bash
-mkdir ~/fabric-network
-cd ~/fabric-network
+git clone <url-repo> fabric-guide
+cd fabric-guide
 ```
 
-> Từ đây trở đi, **mọi lệnh đều chạy từ thư mục này** trừ khi có ghi chú khác.
-> Nếu mở terminal mới, hãy `cd` về thư mục này trước.
+> Từ đây trở đi, **mọi lệnh đều chạy từ thư mục `fabric-guide/`** trừ khi có ghi chú khác.
+> Nếu mở terminal mới, hãy `cd fabric-guide` trước.
 
 ---
 
-## 2. Kiểm tra yêu cầu hệ thống
-
-### Docker
+## 1. Kiểm tra Docker
 
 ```bash
 docker version
 docker compose version
 ```
 
-Yêu cầu:
-- Docker Engine >= 18.09
-- Docker Compose >= 1.29 (hoặc Docker Compose plugin v2)
+Yêu cầu: Docker Engine >= 18.09, Docker Compose >= 1.29 (hoặc plugin v2).
 
 Nếu chưa cài: https://docs.docker.com/engine/install/
 
-Nếu gặp lỗi `permission denied` khi chạy Docker:
+Nếu gặp lỗi `permission denied`:
 ```bash
 sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-### Git và curl
-
-```bash
-git --version
-curl --version
-```
-
 ---
 
-## 3. Cài Go
+## 2. Kiểm tra / Cài Go
 
+```bash
+go version
+# go version go1.21.x linux/amd64
+```
+
+Nếu chưa cài:
 ```bash
 curl -sSL https://go.dev/dl/go1.21.13.linux-amd64.tar.gz -o /tmp/go.tar.gz
 sudo tar -C /usr/local -xzf /tmp/go.tar.gz
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
 source ~/.bashrc
-go version
-# go version go1.21.13 linux/amd64
 ```
 
 ---
 
-## 4. Tải Fabric binaries và Docker images
+## 3. Tải Fabric binaries và Docker images
 
-Chạy lệnh này **từ bên trong thư mục làm việc** (bước 1):
+Chạy lệnh sau **từ bên trong thư mục `fabric-guide/`**:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh \
   | bash -s -- binary docker samples
 ```
 
-| Tham số | Tác dụng |
-|---------|----------|
-| `binary` | Tải Fabric binaries vào `fabric-samples/bin/` |
-| `docker` | Pull Docker images của Fabric |
-| `samples` | Clone repo `fabric-samples` từ GitHub |
-
-Script sẽ tạo ra thư mục `fabric-samples/` ngay trong thư mục hiện tại:
+Script tạo ra thư mục `fabric-samples/` ngay trong thư mục hiện tại:
 
 ```
 fabric-samples/
 ├── bin/
-│   ├── peer              ← CLI tương tác với peer
-│   ├── orderer           ← Binary chạy orderer node
-│   ├── cryptogen         ← Sinh certificates
-│   ├── configtxgen       ← Sinh genesis block và channel tx
-│   ├── configtxlator     ← Convert config format
-│   ├── osnadmin          ← Quản lý channel trên orderer
-│   └── fabric-ca-client  ← Fabric CA client
+│   ├── peer, orderer, cryptogen
+│   ├── configtxgen, configtxlator
+│   └── osnadmin, fabric-ca-client
 ├── config/
-│   ├── core.yaml         ← Config mặc định cho peer
-│   └── orderer.yaml      ← Config mặc định cho orderer
-└── asset-transfer-basic/ ← Chaincode mẫu dùng ở Bước 5
+│   ├── core.yaml
+│   └── orderer.yaml
+└── asset-transfer-basic/    ← Chaincode mẫu dùng ở Bước 5
 ```
+
+> `fabric-samples/` đã có trong `.gitignore` — sẽ không bị commit vào repo.
 
 ---
 
-## 5. Thêm Fabric binaries vào PATH
+## 4. Thêm Fabric binaries vào PATH
 
-Chạy lệnh này **từ thư mục làm việc** để set PATH cho session hiện tại:
+Chạy từ thư mục `fabric-guide/`:
 
 ```bash
 export PATH=$PATH:$(pwd)/fabric-samples/bin
-export FABRIC_CFG_PATH=$(pwd)/fabric-samples/config
 ```
 
-Để không phải chạy lại mỗi lần mở terminal mới, lưu đường dẫn tuyệt đối vào `~/.bashrc`:
-
+Để không phải chạy lại mỗi lần mở terminal mới:
 ```bash
 echo "export PATH=\$PATH:$(pwd)/fabric-samples/bin" >> ~/.bashrc
-echo "export FABRIC_CFG_PATH=$(pwd)/fabric-samples/config" >> ~/.bashrc
+source ~/.bashrc
 ```
-
-> `FABRIC_CFG_PATH` ở đây là giá trị mặc định. Các bước sau sẽ override biến này
-> tùy từng lệnh (xem Bước 2 và Bước 4).
 
 ---
 
-## 6. Sao chép configs vào project
-
-Fabric binaries cần `core.yaml` và `orderer.yaml` khi chạy. Copy từ `fabric-samples`:
+## 5. Kiểm tra tổng thể
 
 ```bash
-mkdir -p configs/node-config
-cp fabric-samples/config/core.yaml configs/node-config/
-cp fabric-samples/config/orderer.yaml configs/node-config/
-```
-
-> Nếu bạn đang dùng repo `fabric-guide` đã clone sẵn, thư mục `configs/` đã có đầy đủ
-> file config — bỏ qua bước này.
-
----
-
-## 7. Kiểm tra tổng thể
-
-```bash
-# Binaries có trong PATH
-peer version | head -3
-cryptogen version | head -3
-configtxgen --version | head -3
+peer version | head -2
+cryptogen version | head -2
+configtxgen --version | head -2
+osnadmin version
 go version
 
-# Docker đang chạy
-docker info | grep "Server Version"
-
-# Images đã có
 docker images | grep hyperledger | awk '{print $1, $2}'
 ```
 
 Output mẫu:
-
 ```
 peer:
  Version: 2.5.x
-
 cryptogen:
  Version: 2.5.x
-
 configtxgen:
  Version: 2.5.x
 
 go version go1.21.13 linux/amd64
 
-Server Version: 24.x.x
-
 hyperledger/fabric-peer      latest
 hyperledger/fabric-orderer   latest
 hyperledger/fabric-ccenv     latest
 hyperledger/fabric-baseos    latest
-hyperledger/fabric-ca        latest
 ```
 
 ---
 
 ## Lỗi thường gặp
 
-### `command not found: cryptogen` / `command not found: peer`
+### `command not found: cryptogen` / `peer`
 
-PATH chưa được set. Chạy lại từ thư mục làm việc:
+PATH chưa được set. Chạy lại từ thư mục `fabric-guide/`:
 ```bash
 export PATH=$PATH:$(pwd)/fabric-samples/bin
 ```
-Hoặc mở terminal mới sau khi đã lưu vào `~/.bashrc`.
 
 ### Script tải chậm hoặc fail
 
-Tải thủ công từ: https://github.com/hyperledger/fabric/releases
+Tải thủ công tại: https://github.com/hyperledger/fabric/releases
 
 ---
 

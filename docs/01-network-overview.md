@@ -82,28 +82,38 @@ Mạng test có 3 tổ chức:
 
 ## 3. Cấu trúc thư mục sau khi setup xong
 
+Repo này (`fabric-guide/`) là thư mục làm việc. Sau khi clone và làm theo hướng dẫn, cấu trúc sẽ như sau:
+
 ```
-<thư mục làm việc>/
-├── fabric-samples/                     ← Binaries + chaincode mẫu (Bước 0)
+fabric-guide/                           ← Clone repo này, cd vào đây
+│
+│   ── Có sẵn trong repo ──
 ├── configs/
 │   ├── cryptogen/                      ← Cấu hình để sinh certs
 │   ├── configtx/                       ← Cấu hình channel
 │   ├── compose/                        ← Docker Compose file
 │   └── node-config/                    ← core.yaml, orderer.yaml
-├── organizations/                      ← (sinh ra ở Bước 2)
+├── docs/                               ← Tài liệu (file này)
+└── scripts/network.sh
+│
+│   ── Tạo ra theo hướng dẫn (không commit) ──
+├── fabric-samples/                     ← Tải về ở Bước 0
+│   ├── bin/                            ← cryptogen, peer, configtxgen, ...
+│   └── asset-transfer-basic/           ← Chaincode mẫu
+├── organizations/                      ← Sinh ra ở Bước 2
 │   ├── peerOrganizations/
 │   │   ├── org1.example.com/
 │   │   │   ├── msp/
 │   │   │   ├── peers/peer0.org1.example.com/{msp,tls}/
 │   │   │   └── users/Admin@org1.example.com/msp/
-│   │   └── org2.example.com/           ← Tương tự Org1
+│   │   └── org2.example.com/
 │   └── ordererOrganizations/
 │       └── example.com/
 │           ├── msp/
 │           └── orderers/orderer.example.com/{msp,tls}/
-├── channel-artifacts/                  ← (sinh ra ở Bước 4)
+├── channel-artifacts/                  ← Sinh ra ở Bước 4
 │   └── mychannel.block
-└── basic.tar.gz                        ← (sinh ra ở Bước 5)
+└── basic.tar.gz                        ← Sinh ra ở Bước 5
 ```
 
 ---

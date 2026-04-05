@@ -187,10 +187,10 @@ rm -rf organizations/ channel-artifacts/ basic.tar.gz
 
 ## Bước tiếp theo
 
-Sau khi đã chạy thành công mạng cơ bản:
-
-- **Thêm org mới**: Xem `fabric-samples/test-network/addOrg3/`
-- **Dùng Fabric CA**: Thay cryptogen bằng CA server thực
-- **CouchDB**: State database hỗ trợ rich query
-- **Viết chaincode**: https://hyperledger-fabric.readthedocs.io/en/release-2.5/chaincode4ade.html
-- **Client SDK**: Kết nối từ ứng dụng Go/Node.js/Java
+| Chủ đề | Tài liệu |
+|--------|----------|
+| Thêm Org3 vào mạng đang chạy | [07-add-org.md](07-add-org.md) |
+| Viết chaincode | https://hyperledger-fabric.readthedocs.io/en/release-2.5/chaincode4ade.html |
+| Dùng Fabric CA thay cryptogen | https://hyperledger-fabric-ca.readthedocs.io |
+| CouchDB (rich query) | https://hyperledger-fabric.readthedocs.io/en/release-2.5/couchdb_tutorial.html |
+| Client SDK (Go/Node.js/Java) | https://hyperledger-fabric.readthedocs.io/en/release-2.5/sdk_chaincode.html |

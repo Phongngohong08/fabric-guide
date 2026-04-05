@@ -1,0 +1,32 @@
+# configs/org3/configtx.yaml — Định nghĩa MSP của Org3
+#
+# File này chỉ dùng để sinh org definition JSON bằng lệnh:
+#   configtxgen -printOrg Org3MSP -configPath configs/org3 > channel-artifacts/org3.json
+#
+# configtxgen yêu cầu thư mục chứa file tên "configtx.yaml", không nhận tên file tuỳ ý.
+# Sau đó org3.json được dùng để cập nhật channel config (xem docs/07-add-org.md).
+# KHÔNG dùng file này để sinh genesis block.
+
+Organizations:
+  - &Org3
+    Name: Org3MSP
+    ID: Org3MSP
+    MSPDir: ../../organizations/peerOrganizations/org3.example.com/msp
+
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('Org3MSP.admin', 'Org3MSP.peer', 'Org3MSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('Org3MSP.admin', 'Org3MSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('Org3MSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('Org3MSP.peer')"
+
+    AnchorPeers:
+      - Host: peer0.org3.example.com
+        Port: 11051

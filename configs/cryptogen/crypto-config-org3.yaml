@@ -1,0 +1,19 @@
+# Cấu hình sinh certificates cho Org3 (Peer Organization)
+#
+# Dùng khi thêm Org3 vào mạng đang chạy (xem docs/07-add-org.md)
+#
+# Chạy từ thư mục gốc project:
+#   cryptogen generate --config=configs/cryptogen/crypto-config-org3.yaml --output=organizations
+
+PeerOrgs:
+  - Name: Org3
+    Domain: org3.example.com
+    EnableNodeOUs: true
+
+    Template:
+      Count: 1                      # Tạo peer0.org3.example.com
+      SANS:
+        - localhost
+
+    Users:
+      Count: 1                      # Tạo User1@org3.example.com

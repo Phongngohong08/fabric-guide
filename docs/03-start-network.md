@@ -147,9 +147,13 @@ docker compose -f configs/compose/compose-test-net.yaml stop
 # Dừng và xóa containers + networks (giữ volumes)
 docker compose -f configs/compose/compose-test-net.yaml down
 
-# Dừng và xóa tất cả kể cả volumes (xóa sạch data)
+# Dừng và xóa tất cả kể cả volumes (xóa sạch data) ← DÙNG CÁI NÀY KHI MUỐN RESET
 docker compose -f configs/compose/compose-test-net.yaml down -v
 ```
+
+> **Quan trọng:** Khi muốn chạy lại từ đầu (regenerate certs mới), **phải** dùng `down -v`
+> để xóa Docker named volumes. Nếu chỉ dùng `down`, containers bị xóa nhưng volumes vẫn còn —
+> lần start tiếp theo orderer sẽ dùng state cũ từ volume, xung đột với certs mới và gây lỗi TLS.
 
 ---
 
