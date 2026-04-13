@@ -71,6 +71,13 @@ fabric-guide/                        ← Thư mục làm việc (repo này)
 | 5 | [docs/05-deploy-chaincode.md](docs/05-deploy-chaincode.md) | Deploy chaincode |
 | 6 | [docs/06-invoke-query.md](docs/06-invoke-query.md) | Giao dịch và query ledger |
 | 7 | [docs/07-add-org.md](docs/07-add-org.md) | Thêm Org3 vào mạng đang chạy |
+| 8 | [docs/08-multi-vm-deployment.md](docs/08-multi-vm-deployment.md) | Triển khai 2 peer + 1 orderer trên 3 máy ảo (cùng LAN) |
+
+---
+
+## Triển khai đa máy (3 VM)
+
+Kịch bản gợi ý: **ba máy ảo Ubuntu trên VMware**, SSH từ máy ngoài, mở **ba terminal** (mỗi terminal một phiên SSH), cấu hình `/etc/hosts` trên cả ba Ubuntu. Chi tiết và thứ tự lệnh: [docs/08-multi-vm-deployment.md](docs/08-multi-vm-deployment.md) — kèm file Compose tách sẵn trong `configs/compose/` (`compose-orderer-only.yaml`, `compose-peer-org1-only.yaml`, `compose-peer-org2-only.yaml`).
 
 ---
 
