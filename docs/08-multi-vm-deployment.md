@@ -69,6 +69,39 @@ Host fabric-org2
 
 Sau đó: `ssh fabric-orderer`, `ssh fabric-org1`, `ssh fabric-org2`.
 
+### 1.3.1. (Tuỳ chọn) SSH key giữa các VM (tiện cho `scp`)
+
+Nếu bạn đang chạy trên VM cloud (ví dụ GCP) và muốn `scp` qua lại **không cần nhập password** mỗi lần, có thể dùng SSH key như sau.
+
+Ví dụ: từ `orderer-server` muốn `scp` sang `org1-server`.
+
+**Trên máy nguồn** (ví dụ `orderer-server`), tạo key (nếu chưa có) và lấy public key:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+cat ~/.ssh/id_ed25519.pub
+```
+
+Copy nội dung dòng `ssh-ed25519 ...` đó sang **máy đích** (ví dụ `org1-server`) và append vào `authorized_keys`:
+
+```bash
+mkdir -p ~/.ssh
+nano ~/.ssh/authorized_keys
+```
+
+Dán thêm public key vào cuối file, lưu lại. Sau đó set permissions (quan trọng):
+
+```bash
+chmod 700 ~/.ssh
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Test từ máy nguồn:
+
+```bash
+ssh <user>@<IP_ORG1> "hostname"
+```
+
 **Máy ngoài không bắt buộc** phải có `/etc/hosts` cho Fabric nếu bạn **chỉ dùng IP để SSH** và **mọi lệnh `peer` / `osnadmin` / `configtxgen` đều chạy bên trong các VM** (khuyến nghị cho bài lab này).
 
 ### 1.4. Ví dụ lệnh cho đúng 3 máy của bạn
@@ -192,6 +225,14 @@ cryptogen generate --config=./configs/cryptogen/crypto-config-org2.yaml --output
 
 **Bước B — Org1/Org2 chỉ gửi “MSP public” sang orderer-server để chạy `configtxgen`.**
 
+- Trước khi copy, **kiểm tra** trên VM Org1/Org2 xem MSP có đủ trust roots (đặc biệt là `cacerts/`). Nếu thiếu, nghĩa là bạn chưa chạy `cryptogen` đúng file config hoặc output chưa đúng chỗ.
+  - Ví dụ trên `org1-server`:
+
+```bash
+ls -la ~/fabric-guide/organizations/peerOrganizations/org1.example.com/msp/
+ls -la ~/fabric-guide/organizations/peerOrganizations/org1.example.com/msp/cacerts/
+```
+
 - Trên `org1-server`:
 
 ```bash
@@ -204,6 +245,13 @@ scp -r ~/fabric-guide/organizations/peerOrganizations/org1.example.com/msp \
 ```bash
 scp -r ~/fabric-guide/organizations/peerOrganizations/org2.example.com/msp \
   <user>@192.168.0.103:~/fabric-guide/organizations/peerOrganizations/org2.example.com/
+```
+
+Sau khi copy xong, **kiểm tra lại ngay trên `orderer-server`** (để khỏi tới mục 6 mới fail):
+
+```bash
+ls -la ~/fabric-guide/organizations/peerOrganizations/org1.example.com/msp/cacerts/
+ls -la ~/fabric-guide/organizations/peerOrganizations/org2.example.com/msp/cacerts/
 ```
 
 **Bước C — (tuỳ chọn) orderer-server gửi orderer TLS-CA cert (public) cho 2 org** để các bước sau (deploy/commit) nếu cần gọi TLS tới `orderer.example.com:7050` từ VM org:
@@ -365,6 +413,193 @@ Gợi ý theo **Cách A (khuyến nghị)**:
 - `install`: chạy trên **VM Org1** và **VM Org2** (mỗi org tự cài lên peer của mình)
 - `approve`: chạy trên **VM Org1** và **VM Org2** (mỗi org tự approve bằng Admin của mình)
 - `commit`: chạy trên **một** VM bất kỳ (thường VM Org1), chỉ cần identity của org đó + có thể gọi TLS tới orderer/peers (tức là hostname resolve được và có các `--tlsRootCertFiles` phù hợp). Không cần mang private key org khác sang.
+
+#### 6.4.1. Package chaincode (làm 1 lần)
+
+Chạy trên **một** VM bất kỳ có `fabric-samples/` và `peer` CLI (ví dụ VM Org1 hoặc VM orderer), sau đó copy `basic.tar.gz` sang 2 VM peer.
+
+```bash
+cd ~/fabric-guide
+export FABRIC_CFG_PATH=$(pwd)/configs/node-config
+export PATH=$PATH:$(pwd)/fabric-samples/bin
+export GOFLAGS="-buildvcs=false"
+
+peer lifecycle chaincode package basic.tar.gz \
+  --path ./fabric-samples/asset-transfer-basic/chaincode-go \
+  --lang golang \
+  --label basic_1.0
+
+ls -lh basic.tar.gz
+```
+
+Copy sang Org1 và Org2 (ví dụ dùng scp từ VM vừa package):
+
+```bash
+scp ~/fabric-guide/basic.tar.gz <user>@<IP_VM_Org1>:~/fabric-guide/
+scp ~/fabric-guide/basic.tar.gz <user>@<IP_VM_Org2>:~/fabric-guide/
+```
+
+#### 6.4.2. Install package lên mỗi peer (Org1 và Org2)
+
+Trên **VM Org1**:
+
+```bash
+cd ~/fabric-guide
+export FABRIC_CFG_PATH=$(pwd)/configs/node-config
+export PATH=$PATH:$(pwd)/fabric-samples/bin
+export CORE_PEER_TLS_ENABLED=true
+export CORE_PEER_LOCALMSPID=Org1MSP
+export CORE_PEER_TLS_ROOTCERT_FILE=$(pwd)/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=$(pwd)/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_ADDRESS=localhost:7051
+
+peer lifecycle chaincode install basic.tar.gz
+
+export CC_PACKAGE_ID=$(peer lifecycle chaincode calculatepackageid basic.tar.gz)
+echo $CC_PACKAGE_ID
+```
+
+Trên **VM Org2**:
+
+```bash
+cd ~/fabric-guide
+export FABRIC_CFG_PATH=$(pwd)/configs/node-config
+export PATH=$PATH:$(pwd)/fabric-samples/bin
+export CORE_PEER_TLS_ENABLED=true
+export CORE_PEER_LOCALMSPID=Org2MSP
+export CORE_PEER_TLS_ROOTCERT_FILE=$(pwd)/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=$(pwd)/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
+export CORE_PEER_ADDRESS=localhost:9051
+
+peer lifecycle chaincode install basic.tar.gz
+
+export CC_PACKAGE_ID=$(peer lifecycle chaincode calculatepackageid basic.tar.gz)
+echo $CC_PACKAGE_ID
+```
+
+> `CC_PACKAGE_ID` trên 2 VM phải giống nhau (vì cùng 1 file `basic.tar.gz`).
+
+#### 6.4.3. Approve (mỗi org tự approve)
+
+Các lệnh approve cần `--cafile` trỏ tới **orderer TLS-CA cert (public)**.
+Nếu VM Org1/Org2 chưa có file này, copy từ VM orderer sang:
+
+```bash
+scp ~/fabric-guide/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem \
+  <user>@<IP_VM_Org1>:~/fabric-guide/channel-artifacts/orderer-tlsca.pem
+scp ~/fabric-guide/organizations/ordererOrganizations/example.com/tlsca/tlsca.example.com-cert.pem \
+  <user>@<IP_VM_Org2>:~/fabric-guide/channel-artifacts/orderer-tlsca.pem
+```
+
+Trên **VM Org1**:
+
+```bash
+cd ~/fabric-guide
+export ORDERER_CA=$(pwd)/channel-artifacts/orderer-tlsca.pem
+
+peer lifecycle chaincode approveformyorg \
+  --channelID mychannel \
+  --name basic \
+  --version 1.0 \
+  --package-id $CC_PACKAGE_ID \
+  --sequence 1 \
+  -o orderer.example.com:7050 \
+  --tls --cafile "$ORDERER_CA"
+```
+
+Trên **VM Org2**:
+
+```bash
+cd ~/fabric-guide
+export ORDERER_CA=$(pwd)/channel-artifacts/orderer-tlsca.pem
+
+peer lifecycle chaincode approveformyorg \
+  --channelID mychannel \
+  --name basic \
+  --version 1.0 \
+  --package-id $CC_PACKAGE_ID \
+  --sequence 1 \
+  -o orderer.example.com:7050 \
+  --tls --cafile "$ORDERER_CA"
+```
+
+#### 6.4.4. Commit (làm 1 lần, thường chạy trên VM Org1)
+
+Để commit (và invoke) từ VM Org1 mà vẫn verify TLS tới peer Org2, VM Org1 cần TLS root cert (public) của peer0.org2:
+
+```bash
+# chạy trên VM Org2
+scp ~/fabric-guide/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt \
+  <user>@<IP_VM_Org1>:~/fabric-guide/channel-artifacts/peer0-org2-tls-ca.crt
+```
+
+Trên **VM Org1**:
+
+```bash
+cd ~/fabric-guide
+export ORDERER_CA=$(pwd)/channel-artifacts/orderer-tlsca.pem
+export PEER0_ORG1_CA=$(pwd)/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export PEER0_ORG2_CA=$(pwd)/channel-artifacts/peer0-org2-tls-ca.crt
+
+peer lifecycle chaincode checkcommitreadiness \
+  --channelID mychannel \
+  --name basic \
+  --version 1.0 \
+  --sequence 1 \
+  --tls --cafile "$ORDERER_CA" \
+  --output json
+
+peer lifecycle chaincode commit \
+  --channelID mychannel \
+  --name basic \
+  --version 1.0 \
+  --sequence 1 \
+  -o orderer.example.com:7050 \
+  --tls --cafile "$ORDERER_CA" \
+  --peerAddresses peer0.org1.example.com:7051 \
+  --tlsRootCertFiles "$PEER0_ORG1_CA" \
+  --peerAddresses peer0.org2.example.com:9051 \
+  --tlsRootCertFiles "$PEER0_ORG2_CA"
+
+peer lifecycle chaincode querycommitted \
+  --channelID mychannel \
+  --name basic \
+  --tls --cafile "$ORDERER_CA"
+```
+
+#### 6.4.5. Test nhanh (invoke/query)
+
+Trên **VM Org1**:
+
+```bash
+cd ~/fabric-guide
+export ORDERER_CA=$(pwd)/channel-artifacts/orderer-tlsca.pem
+export PEER0_ORG2_CA=$(pwd)/channel-artifacts/peer0-org2-tls-ca.crt
+
+peer chaincode invoke \
+  -o orderer.example.com:7050 \
+  --tls --cafile "$ORDERER_CA" \
+  -C mychannel -n basic \
+  --peerAddresses peer0.org1.example.com:7051 \
+  --tlsRootCertFiles "$CORE_PEER_TLS_ROOTCERT_FILE" \
+  --peerAddresses peer0.org2.example.com:9051 \
+  --tlsRootCertFiles "$PEER0_ORG2_CA" \
+  -c '{"function":"InitLedger","Args":[]}'
+
+peer chaincode query -C mychannel -n basic -c '{"Args":["GetAllAssets"]}'
+
+peer chaincode invoke \
+  -o orderer.example.com:7050 \
+  --tls --cafile "$ORDERER_CA" \
+  -C mychannel -n basic \
+  --peerAddresses peer0.org1.example.com:7051 \
+  --tlsRootCertFiles "$CORE_PEER_TLS_ROOTCERT_FILE" \
+  --peerAddresses peer0.org2.example.com:9051 \
+  --tlsRootCertFiles "$PEER0_ORG2_CA" \
+  -c '{"function":"CreateAsset","Args":["asset99","purple","99","Alice","999"]}'
+
+peer chaincode query -C mychannel -n basic -c '{"Args":["ReadAsset","asset99"]}'
+```
 
 ---
 
